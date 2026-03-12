@@ -13,9 +13,7 @@ import {
 
 const router = express.Router();
 
-/* ======================
-   AUTH ROUTES
-====================== */
+/* ================= AUTH ROUTES ================= */
 
 router.post("/signup", signUp);
 router.post("/login", login);
@@ -24,9 +22,7 @@ router.post("/verify-otp", verifyOTP);
 router.post("/google", googleSignIn);
 
 
-/* ======================
-   AUTH MIDDLEWARE
-====================== */
+/* ================= AUTH MIDDLEWARE ================= */
 
 const authenticateUser = async (req, res, next) => {
   try {
@@ -50,86 +46,117 @@ const authenticateUser = async (req, res, next) => {
     next();
 
   } catch (err) {
-    return res.status(401).json({
-      message: "Unauthorized",
-      error: err.message
-    });
+
+    console.error("Auth error:", err.message);
+
+    return res.status(401).json({ message: "Unauthorized" });
+
   }
 };
 
 
-/* ======================
-   GET USER CRYPTOS
-====================== */
+/* ================= CACHE ================= */
+
+const cryptoCache = new Map();
+const searchCache = new Map();
+
+const CACHE_DURATION = 600000; // 10 minutes
+
+
+/* ================= GET PORTFOLIO ================= */
 
 router.get("/crypto", authenticateUser, async (req, res) => {
+
   try {
 
-    const user = await User.findById(req.user.id);
+    const symbols = req.user.cryptos || [];
 
-    if (!user)
-      return res.status(404).json({ message: "User not found" });
-
-    const symbols = user.cryptos;
-
-    if (!symbols || symbols.length === 0)
-      return res.json([]);
+    if (!symbols.length) return res.json([]);
 
     const ids = symbols.join(",");
+
+    const cached = cryptoCache.get(ids);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return res.json(cached.data);
+    }
 
     const response = await axios.get(
       "https://api.coingecko.com/api/v3/coins/markets",
       {
         params: {
           vs_currency: "usd",
-          ids: ids,
+          ids,
           price_change_percentage: "1h,24h,7d"
         }
       }
     );
 
-    res.json(response.data);
+    const data = response.data.map((coin) => ({
+      id: coin.id,
+      name: coin.name,
+      symbol: coin.symbol,
+      image: coin.image,
+      current_price: coin.current_price,
+      price_change_percentage_1h_in_currency:
+        coin.price_change_percentage_1h_in_currency,
+      price_change_percentage_24h: coin.price_change_percentage_24h,
+      price_change_percentage_7d_in_currency:
+        coin.price_change_percentage_7d_in_currency
+    }));
+
+    cryptoCache.set(ids, {
+      data,
+      timestamp: Date.now()
+    });
+
+    res.json(data);
 
   } catch (err) {
-    console.error("Error fetching crypto:", err.message);
-    res.status(500).json({ message: "Failed to fetch crypto data" });
+
+    if (err.response?.status === 429) {
+      return res.status(429).json({
+        message: "CoinGecko rate limit reached. Please wait a moment."
+      });
+    }
+
+    console.error("Crypto fetch error:", err.message);
+
+    res.status(500).json({
+      message: "Internal server error"
+    });
+
   }
+
 });
 
 
-/* ======================
-   ADD CRYPTO
-====================== */
+/* ================= ADD CRYPTO ================= */
 
 router.post("/crypto/add", authenticateUser, async (req, res) => {
+
   try {
 
-    const { symbol } = req.body;
+    const coinInput = req.body.symbol || req.body.id;
 
-    if (!symbol)
-      return res.status(400).json({ message: "Symbol is required" });
+    if (!coinInput)
+      return res.status(400).json({ message: "Coin required" });
 
-    const coinId = symbol.toLowerCase();
+    const coinId = coinInput.toLowerCase().trim();
 
-    const response = await axios.get(
-      "https://api.coingecko.com/api/v3/coins/markets",
-      {
-        params: {
-          vs_currency: "usd",
-          ids: coinId
-        }
-      }
-    );
+    if (!req.user.cryptos)
+      req.user.cryptos = [];
 
-    if (!response.data || response.data.length === 0)
-      return res.status(404).json({
-        message: `Coin with ID "${symbol}" not found`
+    if (req.user.cryptos.includes(coinId))
+      return res.status(400).json({
+        message: `${coinId} already exists`
       });
 
-    if (!req.user.cryptos.includes(coinId)) {
-      req.user.cryptos.push(coinId);
-      await req.user.save();
-    }
+    req.user.cryptos.push(coinId);
+
+    await req.user.save();
+
+    cryptoCache.clear();
 
     res.json({
       success: true,
@@ -137,79 +164,113 @@ router.post("/crypto/add", authenticateUser, async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Add crypto error:", err);
-    res.status(500).json({ message: "Failed to add cryptocurrency" });
+
+    console.error("Add crypto error:", err.message);
+
+    res.status(500).json({
+      message: "Failed to add cryptocurrency"
+    });
+
   }
+
 });
 
 
-/* ======================
-   SEARCH CRYPTO
-====================== */
+/* ================= SEARCH CRYPTO ================= */
 
 router.get("/crypto/search", authenticateUser, async (req, res) => {
+
   try {
 
     const query = req.query.query?.toLowerCase() || "";
 
-    if (!query)
-      return res.json([]);
+    if (!query) return res.json([]);
+
+    const cached = searchCache.get(query);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return res.json(cached.data);
+    }
 
     const response = await axios.get(
       `https://api.coingecko.com/api/v3/search?query=${query}`
     );
 
-    const result = response.data.coins.map((coin) => ({
-      id: coin.id,
-      name: coin.name,
-      symbol: coin.symbol
-    }));
+    const result = response.data.coins
+      .map((coin) => ({
+        id: coin.id,
+        name: coin.name,
+        symbol: coin.symbol
+      }))
+      .slice(0, 10);
 
-    res.json(result.slice(0, 10));
+    searchCache.set(query, {
+      data: result,
+      timestamp: Date.now()
+    });
+
+    res.json(result);
 
   } catch (err) {
-    console.error("Search failed:", err);
+
+    if (err.response?.status === 429) {
+      return res.status(429).json({
+        message: "Too many search requests. Please wait a moment."
+      });
+    }
+
+    console.error("Search error:", err.message);
+
     res.status(500).json({
       message: "Search failed"
     });
+
   }
+
 });
 
 
-/* ======================
-   DELETE CRYPTO
-====================== */
+/* ================= DELETE CRYPTO ================= */
 
-router.delete("/crypto/delete/:symbol", authenticateUser, async (req, res) => {
+router.delete("/crypto/delete/:id", authenticateUser, async (req, res) => {
+
   try {
 
-    const { symbol } = req.params;
+    const { id } = req.params;
+
+    if (!req.user.cryptos)
+      req.user.cryptos = [];
 
     const index = req.user.cryptos.findIndex(
-      coin => coin.toLowerCase() === symbol.toLowerCase()
+      (coin) => coin.toLowerCase() === id.toLowerCase()
     );
 
     if (index === -1)
       return res.status(404).json({
-        message: `"${symbol}" not found in your portfolio`
+        message: `"${id}" not found in portfolio`
       });
 
     req.user.cryptos.splice(index, 1);
 
     await req.user.save();
 
+    cryptoCache.clear();
+
     res.json({
       success: true,
-      message: `${symbol} removed successfully`
+      message: `${id} removed successfully`
     });
 
   } catch (err) {
-    console.error("Delete error:", err);
+
+    console.error("Delete error:", err.message);
 
     res.status(500).json({
       message: "Server error during deletion"
     });
+
   }
+
 });
 
 

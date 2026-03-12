@@ -20,7 +20,7 @@ const __dirname = dirname(__filename);
 // Middleware
 app.use(cors({
  origin: ["http://localhost:5173", "https://crypto-pulse-8dtn.onrender.com"],
-  credentials: true
+ credentials: true
 }));
 
 app.use(express.json());

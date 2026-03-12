@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api";
+// Use relative path so it works both locally and on Render
+const API_BASE = "/api";
 
 // AUTH
 export const signupUser = (data) =>
@@ -28,7 +29,7 @@ export const fetchCryptos = () => {
 };
 
 
-// SEARCH CRYPTO (CoinGecko search)
+// SEARCH CRYPTO
 export const searchCrypto = (query) => {
   const token = localStorage.getItem("token");
 
@@ -47,22 +48,16 @@ export const searchCrypto = (query) => {
 export const deleteCrypto = async (symbol) => {
   const token = localStorage.getItem("token");
 
-  try {
-    const response = await axios.delete(
-      `${API_BASE}/crypto/delete/${encodeURIComponent(symbol)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+  const response = await axios.delete(
+    `${API_BASE}/crypto/delete/${encodeURIComponent(symbol)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
-    return response;
-
-  } catch (error) {
-    console.error("API Delete Error:", error);
-    throw error;
-  }
+  return response.data;
 };
 
 
@@ -70,22 +65,16 @@ export const deleteCrypto = async (symbol) => {
 export const addCrypto = async (symbol) => {
   const token = localStorage.getItem("token");
 
-  try {
-    const response = await axios.post(
-      `${API_BASE}/crypto/add`,
-      { symbol },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+  const response = await axios.post(
+    `${API_BASE}/crypto/add`,
+    { symbol },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
 
-    return response.data;
-
-  } catch (err) {
-    console.error("API Add Error:", err);
-    throw err;
-  }
+  return response.data;
 };

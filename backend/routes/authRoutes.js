@@ -60,7 +60,7 @@ const authenticateUser = async (req, res, next) => {
 const cryptoCache = new Map();
 const searchCache = new Map();
 
-const CACHE_DURATION = 600000; // 10 minutes
+const CACHE_DURATION = 1800000; // 30 minutes
 
 
 /* ================= GET PORTFOLIO ================= */
@@ -116,7 +116,7 @@ router.get("/crypto", authenticateUser, async (req, res) => {
 
     if (err.response?.status === 429) {
       return res.status(429).json({
-        message: "CoinGecko rate limit reached. Please wait a moment."
+        message: "CoinGecko rate limit reached. Please wait."
       });
     }
 
@@ -137,22 +137,22 @@ router.post("/crypto/add", authenticateUser, async (req, res) => {
 
   try {
 
-    const coinInput = req.body.symbol || req.body.id;
+    const coinId = req.body.id;
 
-    if (!coinInput)
-      return res.status(400).json({ message: "Coin required" });
+    if (!coinId)
+      return res.status(400).json({ message: "Coin id required" });
 
-    const coinId = coinInput.toLowerCase().trim();
+    const formattedCoin = coinId.toLowerCase().trim();
 
     if (!req.user.cryptos)
       req.user.cryptos = [];
 
-    if (req.user.cryptos.includes(coinId))
+    if (req.user.cryptos.includes(formattedCoin))
       return res.status(400).json({
-        message: `${coinId} already exists`
+        message: `${formattedCoin} already exists`
       });
 
-    req.user.cryptos.push(coinId);
+    req.user.cryptos.push(formattedCoin);
 
     await req.user.save();
 
@@ -160,7 +160,7 @@ router.post("/crypto/add", authenticateUser, async (req, res) => {
 
     res.json({
       success: true,
-      message: `${coinId} added successfully`
+      message: `${formattedCoin} added successfully`
     });
 
   } catch (err) {
@@ -215,7 +215,7 @@ router.get("/crypto/search", authenticateUser, async (req, res) => {
 
     if (err.response?.status === 429) {
       return res.status(429).json({
-        message: "Too many search requests. Please wait a moment."
+        message: "Too many search requests. Please wait."
       });
     }
 
@@ -272,6 +272,5 @@ router.delete("/crypto/delete/:id", authenticateUser, async (req, res) => {
   }
 
 });
-
 
 export default router;

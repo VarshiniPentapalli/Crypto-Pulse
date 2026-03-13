@@ -1,9 +1,10 @@
 import axios from "axios";
 
-// Use relative path so it works both locally and on Render
 const API_BASE = "/api";
 
-// AUTH
+
+/* ================= AUTH ================= */
+
 export const signupUser = (data) =>
   axios.post(`${API_BASE}/signup`, data);
 
@@ -17,64 +18,76 @@ export const verifyOTP = (data) =>
   axios.post(`${API_BASE}/verify-otp`, data);
 
 
-// FETCH USER CRYPTOS
+/* ================= FETCH PORTFOLIO ================= */
+
 export const fetchCryptos = () => {
+
   const token = localStorage.getItem("token");
 
   return axios.get(`${API_BASE}/crypto`, {
     headers: {
-      Authorization: `Bearer ${token}`,
-    },
+      Authorization: `Bearer ${token}`
+    }
   });
+
 };
 
 
-// SEARCH CRYPTO
+/* ================= SEARCH CRYPTO ================= */
+
 export const searchCrypto = (query) => {
+
   const token = localStorage.getItem("token");
 
   return axios.get(
     `${API_BASE}/crypto/search?query=${encodeURIComponent(query)}`,
     {
       headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-};
-
-
-// DELETE CRYPTO
-export const deleteCrypto = async (symbol) => {
-  const token = localStorage.getItem("token");
-
-  const response = await axios.delete(
-    `${API_BASE}/crypto/delete/${encodeURIComponent(symbol)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+        Authorization: `Bearer ${token}`
+      }
     }
   );
 
-  return response.data;
 };
 
 
-// ADD CRYPTO
-export const addCrypto = async (symbol) => {
+/* ================= ADD CRYPTO ================= */
+
+export const addCrypto = async (coinId) => {
+
   const token = localStorage.getItem("token");
 
   const response = await axios.post(
     `${API_BASE}/crypto/add`,
-    { symbol },
+    { id: coinId },
     {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+        "Content-Type": "application/json"
+      }
     }
   );
 
   return response.data;
+
+};
+
+
+/* ================= DELETE CRYPTO ================= */
+
+export const deleteCrypto = async (coinId) => {
+
+  const token = localStorage.getItem("token");
+
+  const response = await axios.delete(
+    `${API_BASE}/crypto/delete/${encodeURIComponent(coinId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  return response.data;
+
 };

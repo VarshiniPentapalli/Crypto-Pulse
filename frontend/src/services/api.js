@@ -2,7 +2,6 @@ import axios from "axios";
 
 const API_BASE = "/api";
 
-
 /* ================= AUTH ================= */
 
 export const signupUser = (data) =>
@@ -26,8 +25,8 @@ export const fetchCryptos = () => {
 
   return axios.get(`${API_BASE}/crypto`, {
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   });
 
 };
@@ -43,8 +42,8 @@ export const searchCrypto = (query) => {
     `${API_BASE}/crypto/search?query=${encodeURIComponent(query)}`,
     {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     }
   );
 
@@ -63,8 +62,8 @@ export const addCrypto = async (coinId) => {
     {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
+        "Content-Type": "application/json",
+      },
     }
   );
 
@@ -83,8 +82,8 @@ export const deleteCrypto = async (coinId) => {
     `${API_BASE}/crypto/delete/${encodeURIComponent(coinId)}`,
     {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     }
   );
 
